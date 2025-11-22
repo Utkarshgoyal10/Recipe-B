@@ -27,7 +27,7 @@ app.use(cors({ origin: '*' })); // allow all origins
 // ======================
 const io = socketIO(server, {
   cors: {
-      origin: 'http://localhost:3000',
+      origin: '*',
       methods: ['GET', 'POST'],
   },
 });
