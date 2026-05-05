@@ -51,7 +51,9 @@ io.on('connection', async socket => {
   socket.on('new-user-joined', name => {
       console.log("New user joined:", name);
       users[socket.id] = name;
+      const count = Object.keys(users).length;
       socket.broadcast.emit('user-joined', name);
+      io.emit('online-count', count);
   });
 
   socket.on('send', async message => {
@@ -71,6 +73,7 @@ io.on('connection', async socket => {
         socket.broadcast.emit('left', name);
       }
       delete users[socket.id];
+      io.emit('online-count', Object.keys(users).length);
   });
 
   socket.on('disconnect', () => {
@@ -79,6 +82,7 @@ io.on('connection', async socket => {
         socket.broadcast.emit('left', userName);
       }
       delete users[socket.id];
+      io.emit('online-count', Object.keys(users).length);
   });
 });
 
