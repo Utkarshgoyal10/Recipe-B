@@ -5,6 +5,7 @@ const cors = require('cors');
 require("dotenv").config();
 require("./models/connection"); // MongoDB connection
 const auth = require("./Routes/auth");
+const Message = require("./models/Message");
 
 // Import routes for NGO / Donor
 const ngoRoutes = require("./Routes/ngo");
@@ -34,8 +35,18 @@ const io = socketIO(server, {
 
 const users = {};
 
-io.on('connection', socket => {
+io.on('connection', async socket => {
   console.log("New socket connected:", socket.id);
+
+  // Send last 50 messages when client explicitly requests
+  socket.on('get-history', async () => {
+    try {
+      const history = await Message.find().sort({ createdAt: 1 }).limit(50);
+      socket.emit('chat-history', history);
+    } catch (err) {
+      console.error('Failed to load chat history:', err);
+    }
+  });
 
   socket.on('new-user-joined', name => {
       console.log("New user joined:", name);
@@ -43,12 +54,30 @@ io.on('connection', socket => {
       socket.broadcast.emit('user-joined', name);
   });
 
-  socket.on('send', message => {
-      socket.broadcast.emit('receive', { message, name: users[socket.id] });
+  socket.on('send', async message => {
+      const name = users[socket.id];
+      const createdAt = new Date();
+      socket.broadcast.emit('receive', { message, name, createdAt });
+      // Save to DB
+      try {
+        await Message.create({ name, message: message.message, createdAt });
+      } catch (err) {
+        console.error('Failed to save message:', err);
+      }
+  });
+
+  socket.on('user-left', (name) => {
+      if (name) {
+        socket.broadcast.emit('left', name);
+      }
+      delete users[socket.id];
   });
 
   socket.on('disconnect', () => {
-      socket.broadcast.emit('left', users[socket.id]);
+      const userName = users[socket.id];
+      if (userName) {
+        socket.broadcast.emit('left', userName);
+      }
       delete users[socket.id];
   });
 });
